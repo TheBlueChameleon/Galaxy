@@ -1,0 +1,37 @@
+WRGK - Project definition
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Simulation of N particles with random masses, interacting gravitationally in 3 spatial and 1 temporal dimension
+* generate std::vector<configuration> of time where configuration is std::vector<pos3D>
+* extract observables accessible to astronomy
+  + rotation curve
+  + mass distribution wrt. radius
+* extra DOF: random boolean isDark: re-Run simulation a number of times for different dark matter content of a galaxy.
+  Let plot characteristics of evolved galaxies vs. rho(Dark Matter)
+* extra DOF: dark matter mass fixed, uniform, separate range, ...
+
+note: r-dependency implies definition of a r-plane, i.e. transition from spherical to cylindrical symmetry.
+however, r-variable in spherical has same meaning as in cylindrical, i.e. may be used.
+Keeping this would require including z-coordinate, which has negligible contribution to the total problem
+[hypot2 = sqrt(x² + y²) vs. hypot3 = sqrt(x² + y² + z²)]
+
+Phases
+* Generation of initial conditions
+  + N threads initialize a cloud of particles with gaussian spatial and mass distribution
+    - directly on device?
+    - rng depends on previous state, thus cannot be done on device
+    - use GSL for distribution
+    - option for initial momentum, gaussian momentum modulus, uniformly distributed direction
+
+* Evolution of system
+  + each thread takes care of one particle
+  + do summation over all array
+  + do N_plot iteration steps
+  + after these:
+    - create v, m-histogram in x(r)
+      GPU has int array particleInClass[N] where idx is ID of particle and array value is histogramm class
+      Secondary kernel cycle with [classCount] threads cycles this array, counts particles where particleInClass[i] = threadID
+      Put this into a result array histogram
+
+* Copy back state and histogram
+* Plot
