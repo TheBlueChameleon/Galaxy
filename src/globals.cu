@@ -35,7 +35,7 @@ const unsigned int M_star_max   = 10;         // maximum star mass, arbitrary un
 // ========================================================================= //
 // device constants
 
-__constant__ star *            GALAXY;
+__constant__ star_t *          GALAXY;
 __constant__ curandGenerator_t RNG_MEM;
 
 __constant__ unsigned int      N_STARS;
@@ -51,8 +51,10 @@ bool flag_rand_initialized = false;
 unsigned int blockSize = 256;
 unsigned int nBlocks = (N_stars + blockSize - 1) / blockSize;
 
-star * d_galaxy = nullptr;
-star * h_galaxy = nullptr;
+star_t     * d_galaxy    = nullptr;
+star_t     * h_galaxy    = nullptr;
+
+distance_t * d_distances = nullptr;
 
 curandGenerator_t d_RNG_mem;
 
@@ -80,10 +82,10 @@ void init_globals() {
   
   
   // get device memory for galaxy
-  h_galaxy = (star *) malloc(N_stars * sizeof(star));
+  h_galaxy = (star_t *) malloc(N_stars * sizeof(star_t));
   if (!h_galaxy) {ABORT_WITH_MSG("galaxy host memory not initialized.");}
   
-  cudaMalloc(&d_galaxy,      N_stars * sizeof(star));
+  cudaMalloc(&d_galaxy,      N_stars * sizeof(star_t));
   if (!d_galaxy) {ABORT_WITH_MSG("galaxy device memory not initialized.");}
   CudaCheckError();
   

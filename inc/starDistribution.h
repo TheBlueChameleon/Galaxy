@@ -18,4 +18,6 @@
 void makeGalaxyOnDevice();
 void fetchGalaxyFromDevice();
 
+void makeDistanceVector(unsigned int i);
+
 #endif//STARDISTRIBUTION_H

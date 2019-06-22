@@ -69,7 +69,7 @@ void makeGalaxyOnDevice() {
   curandGenerateUniform(
     d_RNG_mem, 
     (float *) d_galaxy,                             // galaxy is of type star *. star is a struct of only floats. This cast is justifiable.
-    N_stars * (sizeof(star) / sizeof(float))
+    N_stars * (sizeof(star_t) / sizeof(float))
   );
   CudaCheckError();
   
@@ -92,10 +92,25 @@ void fetchGalaxyFromDevice() {
   cudaMemcpy(
     h_galaxy, 
     d_galaxy, 
-    N_stars * sizeof(star),
+    N_stars * sizeof(star_t),
     cudaMemcpyDeviceToHost
   );
   CudaCheckError();
 }
 
+// ========================================================================= //
+// get all distances from a given star at index i
+
 // ------------------------------------------------------------------------- //
+void makeDistanceVector(unsigned int i) {
+  if (i > N_stars) {
+    fprintf(
+      stderr,
+      "%s: Invalid index %i\n",
+      __func__, i
+    );
+    return;
+  }
+  
+  
+}

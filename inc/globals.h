@@ -23,14 +23,20 @@ typedef struct {
   float x;
   float y;
   float z;
-} vector3D;
+} vector3D_t;
 
 typedef struct {
-  vector3D position;
-  vector3D velocity;
-  
-  float mass;
-} star;
+  vector3D_t position;
+  vector3D_t velocity;
+  float    mass;
+} star_t;
+
+typedef struct {
+  float x;
+  float y;
+  float z;
+  float r;
+} distance_t;
 
 // ========================================================================= //
 // global const vars
@@ -47,7 +53,7 @@ extern const unsigned int V_init_max;      // maximum initial star velocity in a
 // ========================================================================= //
 // device constants
 
-__constant__ extern star *            GALAXY;
+__constant__ extern star_t *          GALAXY;
 __constant__ extern curandGenerator_t RNG_MEM;
 
 __constant__ extern unsigned int      N_STARS;
@@ -63,8 +69,10 @@ extern bool flag_rand_initialized;
 extern unsigned int blockSize;
 extern unsigned int nBlocks;
 
-extern star * d_galaxy;
-extern star * h_galaxy;
+extern star_t * d_galaxy;
+extern star_t * h_galaxy;
+
+extern distance_t * d_distances;
 
 extern curandGenerator_t d_RNG_mem;
 
