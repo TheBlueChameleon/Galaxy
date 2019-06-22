@@ -1,4 +1,10 @@
-/* TODO: Project definition
+/* globals.h
+ * 
+ * this module defines the basic data types, global values and constants as
+ * well as the procs generating and maintaining them (maintainance mostly means
+ * automatically freeing ressources after use)
+ * 
+ * further, there are macros that are considered of global utility.
  */
 
 #ifndef GLOBALS_H
@@ -34,19 +40,20 @@ extern const unsigned int N_datapoints;    // number of data points to report to
 extern const unsigned int N_steps     ;    // number of computations before copy-back is triggered
   // this means there are N_datapoints * N_steps computations before a reported quantity is copied back to host.
 
-extern const unsigned int R_universe;      // initial coordinates will be within +/- R_universe for each coordinates component
+extern const unsigned int D_universe;      // initial coordinates will be within +/- D_universe for each coordinates component
 extern const unsigned int M_star_max;      // maximum star mass, arbitrary units.
-
+extern const unsigned int V_init_max;      // maximum initial star velocity in any canonical direction
 
 // ========================================================================= //
 // device constants
 
-__constant__ star *            GALAXY;
-__constant__ curandGenerator_t RNG_MEM;
+__constant__ extern star *            GALAXY;
+__constant__ extern curandGenerator_t RNG_MEM;
 
-__constant__ unsigned int      N_STARS;
-__constant__ unsigned int      R_UNIVERSE;
-__constant__ unsigned int      M_STAR_MAX;
+__constant__ extern unsigned int      N_STARS;
+__constant__ extern unsigned int      D_UNIVERSE;
+__constant__ extern unsigned int      M_STAR_MAX;
+__constant__ extern unsigned int      V_INIT_MAX;
 
 // ========================================================================= //
 // global vars
@@ -57,8 +64,30 @@ extern unsigned int blockSize;
 extern unsigned int nBlocks;
 
 extern star * d_galaxy;
+extern star * h_galaxy;
 
 extern curandGenerator_t d_RNG_mem;
+
+// ========================================================================= //
+// macros
+
+#define CudaCheckError()  cudaCheckErrorProc(__FILE__, __LINE__)
+
+#define ABORT_WITH_MSG(x) {                     \
+    fprintf ( stderr,                           \
+              "Abort in %s in %s, line %i\n",   \
+              __func__, __FILE__, __LINE__      \
+            );                                  \
+    if (x) {                                    \
+      fprintf ( stderr,                         \
+                "\t%s\n",                       \
+                x                               \
+              );                                \
+    }                                           \
+    exit(-1);                                   \
+  }
+
+#define DBG_VAL(fmt, x) {printf("%s = " fmt "\n", #x, x);}
 
 // ========================================================================= //
 // inline procs
@@ -66,30 +95,15 @@ extern curandGenerator_t d_RNG_mem;
 // ----------------------------------------------------------------------- //
 // CUDA error check interface
 
-#define CudaCheckError()  cudaCheckErrorProc(__FILE__, __LINE__)
 inline void cudaCheckErrorProc (const char * file, const int line) {
 #ifdef CUDA_ERROR_CHECK
   cudaError err = cudaGetLastError();
   
-  if (err != cudaSuccess) {
-    fprintf ( stderr, 
-              "cudaCheckError() failed at %s :%i : %s\n",
-              file, line, cudaGetErrorString(err) 
-            );
-            exit(-1);
-  }
+  if (err != cudaSuccess) {ABORT_WITH_MSG(NULL);}
 
   err = cudaDeviceSynchronize ();
-  if (err != cudaSuccess) {
-    fprintf ( stderr, 
-              "cudaCheckError() with sync failed at %s :%i : %s\n",
-              file, line, cudaGetErrorString(err) 
-            );
-            exit(-1);
-  }
+  if (err != cudaSuccess) {ABORT_WITH_MSG(NULL);}
 #endif
-  
-  return;
 }
 
 // ----------------------------------------------------------------------- //
@@ -101,10 +115,5 @@ inline float randbetween(float lo, float hi) {return (hi - lo) * randfloat() + l
 // ========================================================================= //
 // procs
 
-void init();
-
-// ========================================================================= //
-// macros
-
-
+void init_globals();
 #endif//GLOBALS_H

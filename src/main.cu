@@ -1,4 +1,6 @@
-/* TODO: Project definition
+/* main.cu
+ * 
+ * this runs the main simulation
  */
 
 
@@ -15,6 +17,7 @@
 #include <assert.h>
 
 #include "globals.h"
+#include "fileout.h"
 #include "starDistribution.h"
 
 // ========================================================================= //
@@ -30,7 +33,8 @@ int main () {
   // ----------------------------------------------------------------------- //
   // setup
   
-  init();
+  init_globals();
+  init_fileout();
   
   
   printf("Attempting to run galaxy simulation. Runtime Parameters:\n");
@@ -40,7 +44,18 @@ int main () {
   printf("\n");
   
   printf("Generating uniform star distribution on device...");
-  d_makeStarsOnDevice();
+  makeGalaxyOnDevice();
+  printf("done.\n");
+  
+  // ----------------------------------------------------------------------- //
+  // make coordinates report
+  
+  printf("Fetching galaxy from device...");
+  fetchGalaxyFromDevice();
+  printf("done.\n");
+  
+  printf("writing galaxy coordinates file...");
+  fileout_galaxy();
   printf("done.\n");
   
   // ----------------------------------------------------------------------- //

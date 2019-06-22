@@ -5,7 +5,7 @@ OBJDIR = obj
 EXEDIR = .
 
 CXX      = nvcc
-CXXFLAGS = -std=c++14 -I $(LIBDIR)
+CXXFLAGS = -std=c++14 -rdc=true -I $(LIBDIR)
 LDFLAGS  = -lm -lcurand
 
 DIRECTORIES = $(subst $(SRCDIR),$(OBJDIR),$(shell find $(SRCDIR) -type d))

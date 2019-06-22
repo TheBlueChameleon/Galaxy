@@ -1,4 +1,7 @@
-/* TODO: Project definition
+/* starDistribution.h
+ * 
+ * this module deals with snapshots of the galaxy: generation, retrieval of 
+ * data from device and reduction into radial histograms.
  */
 
 #ifndef STARDISTRIBUTION_H
@@ -12,6 +15,7 @@
 // ========================================================================= //
 // procs
 
-void d_makeStarsOnDevice();
+void makeGalaxyOnDevice();
+void fetchGalaxyFromDevice();
 
 #endif//STARDISTRIBUTION_H

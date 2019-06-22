@@ -1,4 +1,7 @@
-/* TODO: Project definition
+/* starDistribution.cu
+ * 
+ * this module deals with snapshots of the galaxy: generation, retrieval of 
+ * data from device and reduction into radial histograms.
  */
 
 
@@ -16,9 +19,39 @@
 
 
 // ========================================================================= //
+// make galaxy
+
+// ------------------------------------------------------------------------- //
+// proc device
+
+__global__ void galaxy_scale() {
+  int i = blockDim.x * blockIdx.x + threadIdx.x;
+  
+  if (i < N_STARS) {
+    GALAXY[i].position.x -= 0.5;
+    GALAXY[i].position.y -= 0.5;
+    GALAXY[i].position.z -= 0.5;
+    
+    GALAXY[i].position.x *= D_UNIVERSE;
+    GALAXY[i].position.y *= D_UNIVERSE;
+    GALAXY[i].position.z *= D_UNIVERSE;
+    
+    GALAXY[i].velocity.x -= 0.5;
+    GALAXY[i].velocity.y -= 0.5;
+    GALAXY[i].velocity.z -= 0.5;
+    
+    GALAXY[i].velocity.x *= V_INIT_MAX;
+    GALAXY[i].velocity.z *= V_INIT_MAX;
+    GALAXY[i].velocity.z *= V_INIT_MAX;
+    
+    GALAXY[i].mass *= M_STAR_MAX;
+  }
+}
+
+// ------------------------------------------------------------------------- //
 // proc host
 
-void d_makeStarsOnDevice() {
+void makeGalaxyOnDevice() {
   /* This will initialize a galaxy with uniform distribution of
    * - position
    * - velocity
@@ -30,20 +63,7 @@ void d_makeStarsOnDevice() {
    * https://docs.nvidia.com/cuda/curand/host-api-overview.html
    */
   
-  if (!flag_rand_initialized) {
-    fprintf ( stderr, 
-              "d_makeStarsOnDevice: RNG not initialized. Aborting.\n"
-            );
-    exit(-1);
-  }
-  
-  if (!d_galaxy) {
-    fprintf ( stderr, 
-              "d_makeStarsOnDevice: galaxy memory not initialized. Aborting.\n"
-            );
-    exit(-1);
-  }
-  
+  if (!flag_rand_initialized) {ABORT_WITH_MSG("RNG not initialized.");}
   
   // run the RNG
   curandGenerateUniform(
@@ -53,28 +73,29 @@ void d_makeStarsOnDevice() {
   );
   CudaCheckError();
   
-  
+  galaxy_scale<<<nBlocks, blockSize>>>();
+  cudaDeviceSynchronize();
 }
-
 
 // ========================================================================= //
-// proc device
+// get back galaxy from device
 
-__global__ void galaxy_scale(
-  star * galaxy, 
-  const unsigned int N
-) {
-  int i = threadIdx.x;  //blockDim.x ∗ blockIdx.x + threadIdx.x;
+void fetchGalaxyFromDevice() {
+  /* TODO: make this asynchronous
+   * for this, you'll need to transform h_galaxy to a page locked array
+   * use cudaMallocHost, cf. script p.33f.
+   * 
+   * This assumes that h_galaxy and d_galaxy have been properly initialized.
+   * The "CTor" init() in globals.cu takes care of this.
+   */
   
-  if (i < N) {
-    galaxy[i].position.x = 0;//RANDBETWEEN(-R_universe, R_universe);
-    galaxy[i].position.y = 0;//RANDBETWEEN(-R_universe, R_universe);
-    galaxy[i].position.z = 0;//RANDBETWEEN(-R_universe, R_universe);
-    
-    galaxy[i].velocity.x = 0;
-    galaxy[i].velocity.y = 0;
-    galaxy[i].velocity.z = 0;
-    
-    galaxy[i].mass = 0;//M_star_max * RANDFLOAT;
-  }
+  cudaMemcpy(
+    h_galaxy, 
+    d_galaxy, 
+    N_stars * sizeof(star),
+    cudaMemcpyDeviceToHost
+  );
+  CudaCheckError();
 }
+
+// ------------------------------------------------------------------------- //
