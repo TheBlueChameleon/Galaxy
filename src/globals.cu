@@ -23,7 +23,7 @@
 // ========================================================================= //
 // global const vars
 
-const unsigned int N_stars      = 256; //1000000;    // number of stars in the galaxy
+const unsigned int N_stars      = 1024; //1000000;    // number of stars in the galaxy
 const unsigned int N_datapoints =     100;    // number of data points to report to host
 const unsigned int N_steps      =     100;    // number of computations before copy-back is triggered
   // this means there are N_datapoints * N_steps computations before a reported quantity is copied back to host.
@@ -32,7 +32,7 @@ const unsigned int D_universe   = 10;         // initial coordinates will be spr
 const unsigned int V_init_max   =  1;         // as D_universe, but for the velocities.
 const unsigned int M_star_max   = 10;         // maximum star mass, arbitrary units.
 
-const unsigned int blockSize = 256;
+const unsigned int blockSize = 512;
 const unsigned int nBlocks = (N_stars + blockSize - 1) / blockSize;
 
 // ========================================================================= //

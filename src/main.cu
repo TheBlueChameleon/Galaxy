@@ -47,6 +47,14 @@ int main () {
   makeGalaxyOnDevice();
   printf("done.\n");
   
+  printf("Transforming in centre of mass/momentum system...");
+  makeCentered();
+  printf("done.\n");
+  
+  printf("repeat; expect zero...");
+  makeCentered();
+  printf("done.\n");
+  
   // ----------------------------------------------------------------------- //
   // make coordinates report
   

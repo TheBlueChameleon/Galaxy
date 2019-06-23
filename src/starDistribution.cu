@@ -208,12 +208,89 @@ __global__ void copyWeightedComponent(
   }
 }
 // ......................................................................... //
-__global__ void reduction_galaxyCentre(
-  action_t     action,
-  vector3D_t * dst
-  
+__device__ void warpReduce_vec3Dsum (volatile vector3D_t * sdata, int tid);
+
+__global__ void reduction_vec3Dsum(
+  vector3D_t * dst,
+  vector3D_t * src,
+  unsigned int N          // elements in src
 ) {
+  /* drives one stage of the sum reduction for 3D vectors. Reads data from
+   * src and outputs partial sums on dst.
+   * 
+   * src is the whole vector array to be summed over.
+   * dst has to be able to hold at least ceil(N / blockSize) items
+   *   after this kernel is finished, dst[i] holds a partial sum over
+   *   blockSize elements of src
+   * shared mem needs blockSize * sizeof(vector3D_t) bytes of memory.
+   * 
+   * This implements sequential adressing with first kernel reduction and
+   *   unrolling of last warp
+   * See
+   * https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
+   */
   
+  // each block has its own section of shared memory
+  extern __shared__ vector3D_t sdata[];
+  
+  unsigned int tid = threadIdx.x;
+  unsigned int  i  = blockIdx.x * blockDim.x * 2   +   threadIdx.x;
+  
+  if (i < N) {
+    // each thread loads one element from global to shared memory
+    if (i + blockDim.x < N) {
+      sdata[tid].x = src[i].x +  src[i + blockDim.x].x;
+      sdata[tid].y = src[i].y +  src[i + blockDim.x].y;
+      sdata[tid].z = src[i].z +  src[i + blockDim.x].z;
+    } else {
+      sdata[tid].x = src[i].x;
+      sdata[tid].y = src[i].y;
+      sdata[tid].z = src[i].z;
+    }
+    
+    __syncthreads();
+    
+    // do reduction in shared mem
+    for (unsigned int s=blockDim.x/2; s>32; s>>=1) {
+      if (tid < s) {
+        sdata[tid].x += sdata[tid + s].x;
+        sdata[tid].y += sdata[tid + s].y;
+        sdata[tid].z += sdata[tid + s].z;
+      }
+      __syncthreads();
+    }
+    
+    if (tid < 32) {warpReduce_vec3Dsum(sdata, tid);}
+    
+    // write result for this block to global mem
+    if (tid == 0) dst[blockIdx.x] = sdata[0];
+  }
+}
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . //
+__device__ void warpReduce_vec3Dsum (volatile vector3D_t * sdata, int tid) {
+  sdata[tid].x += sdata[tid + 32].x;
+  sdata[tid].y += sdata[tid + 32].y;
+  sdata[tid].z += sdata[tid + 32].z;
+  
+  sdata[tid].x += sdata[tid + 16].x;
+  sdata[tid].y += sdata[tid + 16].y;
+  sdata[tid].z += sdata[tid + 16].z;
+  
+  sdata[tid].x += sdata[tid +  8].x;
+  sdata[tid].y += sdata[tid +  8].y;
+  sdata[tid].z += sdata[tid +  8].z;
+  
+  sdata[tid].x += sdata[tid +  4].x;
+  sdata[tid].y += sdata[tid +  4].y;
+  sdata[tid].z += sdata[tid +  4].z;
+  
+  sdata[tid].x += sdata[tid +  2].x;
+  sdata[tid].y += sdata[tid +  2].y;
+  sdata[tid].z += sdata[tid +  2].z;
+  
+  sdata[tid].x += sdata[tid +  1].x;
+  sdata[tid].y += sdata[tid +  1].y;
+  sdata[tid].z += sdata[tid +  1].z;
 }
 // ......................................................................... //
 __global__ void translateComponent(
@@ -247,10 +324,10 @@ void makeCentered() {
    * represents centre of momentum.
    */
   
-  vector3D_t  centreOfMass, 
-              centreOfMomentum,
-              * d_positions  = nullptr,     // temp device arrays 
-              * d_velocities = nullptr;     // do reductions on these
+  vector3D_t  h_centreOfMass, 
+              h_centreOfMomentum,
+              * d_positions  = nullptr,     // temp device arrays used for reduction
+              * d_velocities = nullptr;     // each one holds result of one block
   
   
   // get memory for reduction to COM & COP
@@ -269,7 +346,37 @@ void makeCentered() {
   
   
   // get COM & COP
-  // sync
+  unsigned int N = N_stars;
+  while (N > 1) {
+    reduction_vec3Dsum<<<nBlocks, blockSize, blockSize * sizeof(vector3D_t)>>>(d_positions , d_positions , N);
+    reduction_vec3Dsum<<<nBlocks, blockSize, blockSize * sizeof(vector3D_t)>>>(d_velocities, d_velocities, N);
+    
+    N = ceil((float) N / blockSize);
+  }
+  
+  
+  // fetch results of reduction
+  cudaMemcpy(
+    &h_centreOfMass, 
+    d_positions, 
+    sizeof(h_centreOfMass),
+    cudaMemcpyDeviceToHost
+  );
+  CudaCheckError();
+  
+  printf("\n");
+  printf("cx: %f\n", h_centreOfMass.x);
+  printf("cy: %f\n", h_centreOfMass.y);
+  printf("cz: %f\n", h_centreOfMass.z);
+  printf("\n");
+  
+  cudaMemcpy(
+    &h_centreOfMomentum, 
+    d_velocities, 
+    sizeof(h_centreOfMomentum),
+    cudaMemcpyDeviceToHost
+  );
+  CudaCheckError();
   
   
   // free buffer COM & COP
@@ -277,7 +384,17 @@ void makeCentered() {
   if (d_velocities) {cudaFree(d_velocities); CudaCheckError();}
   
   
-  // translate by COM & COP
-  translateComponent<<<nBlocks, blockSize>>>(position_action, centreOfMass    );
-  translateComponent<<<nBlocks, blockSize>>>(velocity_action, centreOfMomentum);
+  // invert COM & COP
+  h_centreOfMass    .x = -h_centreOfMass    .x;
+  h_centreOfMass    .y = -h_centreOfMass    .y;
+  h_centreOfMass    .z = -h_centreOfMass    .z;
+  
+  h_centreOfMomentum.x = -h_centreOfMomentum.x;
+  h_centreOfMomentum.y = -h_centreOfMomentum.y;
+  h_centreOfMomentum.z = -h_centreOfMomentum.z;
+  
+  
+  // translate by COM & COP: add inverted vectors
+  translateComponent<<<nBlocks, blockSize>>>(position_action, h_centreOfMass    );
+  translateComponent<<<nBlocks, blockSize>>>(velocity_action, h_centreOfMomentum);
 }
