@@ -141,7 +141,7 @@ void makeDistanceVector(unsigned int k) {
 // ========================================================================= //
 // get all distances from origin for all stars
 
-__global__ void makeModuliVectorComponent(
+__global__ void makeModulusVectorComponent(
   float *  dst,
   action_t action
 ) {
@@ -163,16 +163,7 @@ __global__ void makeModuliVectorComponent(
 }
 
 // ------------------------------------------------------------------------- //
-void makeRadiusVector(unsigned int k) {
-  if (k > N_stars) {
-    fprintf(
-      stderr,
-      "%s: Invalid index %u\n",
-      __func__, k
-    );
-    return;
-  }
-  
-  makeDistanceComponent<<<nBlocks, blockSize>>>(k);
+void makeModulusVector (action_t action) {
+  makeModulusVectorComponent<<<nBlocks, blockSize>>>(d_moduli, action);
   cudaDeviceSynchronize();
 }

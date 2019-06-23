@@ -19,7 +19,6 @@ void makeGalaxyOnDevice();                    // prepares global d_galaxy
 void fetchGalaxyFromDevice();                 // transfers to    h_galaxy
 
 void makeDistanceVector(unsigned int i);      // prepares global d_distances
-void makeRadiusVector  ();
-void makeVelocityVector();
+void makeModulusVector (action_t action);     // prepares global d_moduli
 
 #endif//STARDISTRIBUTION_H
