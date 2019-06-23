@@ -24,19 +24,20 @@ typedef struct {
   float y;
   float z;
 } vector3D_t;
-
+// ......................................................................... //
 typedef struct {
   vector3D_t position;
   vector3D_t velocity;
   float    mass;
 } star_t;
-
+// ------------------------------------------------------------------------- //
 typedef struct {
   float x;
   float y;
   float z;
-  float r;
+  float l;
 } distance_t;
+// ------------------------------------------------------------------------- //
 
 // ========================================================================= //
 // global const vars
@@ -53,8 +54,8 @@ extern const unsigned int V_init_max;      // maximum initial star velocity in a
 // ========================================================================= //
 // device constants
 
-__constant__ extern star_t *          GALAXY;
-__constant__ extern curandGenerator_t RNG_MEM;
+__constant__ extern star_t     *      GALAXY;
+__constant__ extern distance_t *      DISTANCES;
 
 __constant__ extern unsigned int      N_STARS;
 __constant__ extern unsigned int      D_UNIVERSE;
@@ -69,10 +70,11 @@ extern bool flag_rand_initialized;
 extern unsigned int blockSize;
 extern unsigned int nBlocks;
 
-extern star_t * d_galaxy;
-extern star_t * h_galaxy;
+extern star_t     * d_galaxy;
+extern star_t     * h_galaxy;
 
 extern distance_t * d_distances;
+extern float      * d_moduli;
 
 extern curandGenerator_t d_RNG_mem;
 
@@ -95,12 +97,14 @@ extern curandGenerator_t d_RNG_mem;
     exit(-1);                                   \
   }
 
+#define LENGTH3D(x, y, z) ((x)*(x) + (y)*(y) + (z)*(z))
+
 #define DBG_VAL(fmt, x) {printf("%s = " fmt "\n", #x, x);}
 
 // ========================================================================= //
 // inline procs
 
-// ----------------------------------------------------------------------- //
+// ------------------------------------------------------------------------- //
 // CUDA error check interface
 
 inline void cudaCheckErrorProc (const char * file, const int line) {
@@ -114,7 +118,7 @@ inline void cudaCheckErrorProc (const char * file, const int line) {
 #endif
 }
 
-// ----------------------------------------------------------------------- //
+// ------------------------------------------------------------------------- //
 // host RNG interface -- if ever needed...
 
 inline float randfloat  (                  ) {return (float) rand() / (float) RAND_MAX;}

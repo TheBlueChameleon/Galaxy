@@ -15,9 +15,11 @@
 // ========================================================================= //
 // procs
 
-void makeGalaxyOnDevice();
-void fetchGalaxyFromDevice();
+void makeGalaxyOnDevice();                    // prepares global d_galaxy
+void fetchGalaxyFromDevice();                 // transfers to    h_galaxy
 
-void makeDistanceVector(unsigned int i);
+void makeDistanceVector(unsigned int i);      // prepares global d_distances
+void makeRadiusVector  ();
+void makeVelocityVector();
 
 #endif//STARDISTRIBUTION_H

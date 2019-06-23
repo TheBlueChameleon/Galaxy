@@ -24,7 +24,12 @@
 // ------------------------------------------------------------------------- //
 // proc device
 
-__global__ void galaxy_scale() {
+__global__ void makeGalaxyOnDevice_component() {
+  /* assumes that all components of GALAXY have been initialized in the range
+   * 0.0f..1.0f and rescales them according to the global constants
+   */
+  
+  
   int i = blockDim.x * blockIdx.x + threadIdx.x;
   
   if (i < N_STARS) {
@@ -60,7 +65,8 @@ void makeGalaxyOnDevice() {
    * and makes use of the below kernel to rescale/translate them into a 
    * reasonable range.
    * 
-   * https://docs.nvidia.com/cuda/curand/host-api-overview.html
+   * useful link:
+   *   https://docs.nvidia.com/cuda/curand/host-api-overview.html
    */
   
   if (!flag_rand_initialized) {ABORT_WITH_MSG("RNG not initialized.");}
@@ -73,7 +79,7 @@ void makeGalaxyOnDevice() {
   );
   CudaCheckError();
   
-  galaxy_scale<<<nBlocks, blockSize>>>();
+  makeGalaxyOnDevice_component<<<nBlocks, blockSize>>>();
   cudaDeviceSynchronize();
 }
 
@@ -99,18 +105,68 @@ void fetchGalaxyFromDevice() {
 }
 
 // ========================================================================= //
-// get all distances from a given star at index i
+// get all distances from a given star at index k
+
+__global__ void makeDistanceComponent(unsigned int k) {
+  /* computes the vector distance and euclidean norm of this vector distance
+   * to a given star k.
+   */
+  
+  int i = blockDim.x * blockIdx.x + threadIdx.x;
+  
+  if (i < N_STARS) {
+    DISTANCES[i].x = GALAXY[i].position.x - GALAXY[k].position.x;
+    DISTANCES[i].y = GALAXY[i].position.y - GALAXY[k].position.y;
+    DISTANCES[i].z = GALAXY[i].position.z - GALAXY[k].position.z;
+    
+    DISTANCES[i].l = LENGTH3D(DISTANCES[i].x, DISTANCES[i].y, DISTANCES[i].z);
+  }
+}
 
 // ------------------------------------------------------------------------- //
-void makeDistanceVector(unsigned int i) {
-  if (i > N_stars) {
+void makeDistanceVector(unsigned int k) {
+  if (k > N_stars) {
     fprintf(
       stderr,
-      "%s: Invalid index %i\n",
-      __func__, i
+      "%s: Invalid index %u\n",
+      __func__, k
     );
     return;
   }
   
+  makeDistanceComponent<<<nBlocks, blockSize>>>(k);
+  cudaDeviceSynchronize();
+}
+
+// ========================================================================= //
+// get all distances from origin for all stars
+
+__global__ void makeModuliVectorComponent(
+  float * dst,
   
+) {
+  /* computes the vector distance and euclidean norm of this vector distance
+   * to a given star k.
+   */
+  
+  int i = blockDim.x * blockIdx.x + threadIdx.x;
+  
+  if (i < N_STARS) {
+    MODULI[i].l = LENGTH3D(MODULI[i].x, MODULI[i].y, MODULI[i].z);
+  }
+}
+
+// ------------------------------------------------------------------------- //
+void makeRadiusVector(unsigned int k) {
+  if (k > N_stars) {
+    fprintf(
+      stderr,
+      "%s: Invalid index %u\n",
+      __func__, k
+    );
+    return;
+  }
+  
+  makeDistanceComponent<<<nBlocks, blockSize>>>(k);
+  cudaDeviceSynchronize();
 }

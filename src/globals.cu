@@ -35,8 +35,8 @@ const unsigned int M_star_max   = 10;         // maximum star mass, arbitrary un
 // ========================================================================= //
 // device constants
 
-__constant__ star_t *          GALAXY;
-__constant__ curandGenerator_t RNG_MEM;
+__constant__ star_t     *      GALAXY;
+__constant__ distance_t *      DISTANCES;
 
 __constant__ unsigned int      N_STARS;
 __constant__ unsigned int      D_UNIVERSE;
@@ -55,6 +55,7 @@ star_t     * d_galaxy    = nullptr;
 star_t     * h_galaxy    = nullptr;
 
 distance_t * d_distances = nullptr;
+float      * d_moduli    = nullptr;
 
 curandGenerator_t d_RNG_mem;
 
@@ -90,13 +91,24 @@ void init_globals() {
   CudaCheckError();
   
   
+  // get memory for distance and moduli vectors
+  cudaMalloc(&d_distances, N_stars * sizeof(distance_t));
+  if (!d_distances) {ABORT_WITH_MSG("distance device memory not initialized.");}
+  CudaCheckError();
+  
+  cudaMalloc(&d_moduli, N_stars * sizeof(distance_t));
+  if (!d_moduli) {ABORT_WITH_MSG("modulus device memory not initialized.");}
+  CudaCheckError();
+  
+  
   // set device constants
-  cudaMemcpyToSymbol(GALAXY    , &d_galaxy  , sizeof(GALAXY    ));
-  cudaMemcpyToSymbol(RNG_MEM   , &d_RNG_mem , sizeof(RNG_MEM   ));
-  cudaMemcpyToSymbol(N_STARS   , &N_stars   , sizeof(N_STARS   ));
-  cudaMemcpyToSymbol(D_UNIVERSE, &D_universe, sizeof(D_UNIVERSE));
-  cudaMemcpyToSymbol(M_STAR_MAX, &M_star_max, sizeof(M_STAR_MAX));
-  cudaMemcpyToSymbol(V_INIT_MAX, &V_init_max, sizeof(V_INIT_MAX));
+  cudaMemcpyToSymbol(GALAXY    , &d_galaxy   , sizeof(GALAXY    ));
+  cudaMemcpyToSymbol(DISTANCES , &d_distances, sizeof(DISTANCES ));
+  
+  cudaMemcpyToSymbol(N_STARS   , &N_stars    , sizeof(N_STARS   ));
+  cudaMemcpyToSymbol(D_UNIVERSE, &D_universe , sizeof(D_UNIVERSE));
+  cudaMemcpyToSymbol(M_STAR_MAX, &M_star_max , sizeof(M_STAR_MAX));
+  cudaMemcpyToSymbol(V_INIT_MAX, &V_init_max , sizeof(V_INIT_MAX));
   CudaCheckError();
   
   
