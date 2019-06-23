@@ -32,6 +32,9 @@ const unsigned int D_universe   = 10;         // initial coordinates will be spr
 const unsigned int V_init_max   =  1;         // as D_universe, but for the velocities.
 const unsigned int M_star_max   = 10;         // maximum star mass, arbitrary units.
 
+const unsigned int blockSize = 256;
+const unsigned int nBlocks = (N_stars + blockSize - 1) / blockSize;
+
 // ========================================================================= //
 // device constants
 
@@ -48,14 +51,13 @@ __constant__ unsigned int      V_INIT_MAX;
 
 bool flag_rand_initialized = false;
 
-unsigned int blockSize = 256;
-unsigned int nBlocks = (N_stars + blockSize - 1) / blockSize;
-
 star_t     * d_galaxy    = nullptr;
 star_t     * h_galaxy    = nullptr;
 
 distance_t * d_distances = nullptr;
+
 float      * d_moduli    = nullptr;
+float      * h_moduli    = nullptr;
 
 curandGenerator_t d_RNG_mem;
 
@@ -82,21 +84,26 @@ void init_globals() {
   flag_rand_initialized = true;
   
   
-  // get device memory for galaxy
-  h_galaxy = (star_t *) malloc(N_stars * sizeof(star_t));
+  // get memory for galaxy
+  h_galaxy = (decltype(h_galaxy)) malloc(N_stars * sizeof(*h_galaxy));
   if (!h_galaxy) {ABORT_WITH_MSG("galaxy host memory not initialized.");}
   
-  cudaMalloc(&d_galaxy,      N_stars * sizeof(star_t));
+  cudaMalloc(&d_galaxy,      N_stars * sizeof(*d_galaxy));
   if (!d_galaxy) {ABORT_WITH_MSG("galaxy device memory not initialized.");}
   CudaCheckError();
   
   
-  // get memory for distance and moduli vectors
-  cudaMalloc(&d_distances, N_stars * sizeof(distance_t));
+  // get memory for distance  vector
+  cudaMalloc(&d_distances, N_stars * sizeof(*d_distances));
   if (!d_distances) {ABORT_WITH_MSG("distance device memory not initialized.");}
   CudaCheckError();
   
-  cudaMalloc(&d_moduli, N_stars * sizeof(distance_t));
+  
+  // get memory for modulus vector
+  h_moduli = (decltype(h_moduli)) malloc(N_stars * sizeof(*h_moduli));
+  if (!h_moduli) {ABORT_WITH_MSG("modulus host memory not initialized.");}
+  
+  cudaMalloc(&d_moduli, N_stars * sizeof(*d_moduli));
   if (!d_moduli) {ABORT_WITH_MSG("modulus device memory not initialized.");}
   CudaCheckError();
   
@@ -122,8 +129,13 @@ void quit_globals() {
   if (d_RNG_mem) {curandDestroyGenerator(d_RNG_mem); CudaCheckError();}
   flag_rand_initialized = false;
   
-  if (h_galaxy) {free    (h_galaxy);                  }
-  if (d_galaxy) {cudaFree(d_galaxy); CudaCheckError();}
+  if (h_galaxy)    {free    (h_galaxy   );                  }
+  if (d_galaxy)    {cudaFree(d_galaxy   ); CudaCheckError();}
+  
+  if (d_distances) {cudaFree(d_distances); CudaCheckError();}
+  
+  if (h_moduli)    {free    (h_moduli   );                  }
+  if (d_moduli)    {cudaFree(d_moduli   ); CudaCheckError();}
 }
 
 // ========================================================================= //

@@ -75,7 +75,7 @@ void makeGalaxyOnDevice() {
   curandGenerateUniform(
     d_RNG_mem, 
     (float *) d_galaxy,                             // galaxy is of type star *. star is a struct of only floats. This cast is justifiable.
-    N_stars * (sizeof(star_t) / sizeof(float))
+    N_stars * (sizeof(*d_galaxy) / sizeof(float))
   );
   CudaCheckError();
   
@@ -98,7 +98,7 @@ void fetchGalaxyFromDevice() {
   cudaMemcpy(
     h_galaxy, 
     d_galaxy, 
-    N_stars * sizeof(star_t),
+    N_stars * sizeof(*h_galaxy),
     cudaMemcpyDeviceToHost
   );
   CudaCheckError();
@@ -107,6 +107,8 @@ void fetchGalaxyFromDevice() {
 // ========================================================================= //
 // get all distances from a given star at index k
 
+// ------------------------------------------------------------------------- //
+// proc device
 __global__ void makeDistanceComponent(unsigned int k) {
   /* computes the vector distance and euclidean norm of this vector distance
    * to a given star k.
@@ -124,6 +126,7 @@ __global__ void makeDistanceComponent(unsigned int k) {
 }
 
 // ------------------------------------------------------------------------- //
+// proc host
 void makeDistanceVector(unsigned int k) {
   if (k > N_stars) {
     fprintf(
@@ -141,15 +144,16 @@ void makeDistanceVector(unsigned int k) {
 // ========================================================================= //
 // get all distances from origin for all stars
 
+// ------------------------------------------------------------------------- //
+// proc device
 __global__ void makeModulusVectorComponent(
-  float *  dst,
-  action_t action
+  action_t action,
+  float *  dst
 ) {
-  /* computes the vector distance and euclidean norm of this vector distance
-   * to a given star k.
+  /* computes the modulus for each star's position or velocity
    */
   
-  int i = blockDim.x * blockIdx.x + threadIdx.x;
+  unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
   
   if (i < N_STARS) {
     switch(action) {
@@ -163,7 +167,117 @@ __global__ void makeModulusVectorComponent(
 }
 
 // ------------------------------------------------------------------------- //
+// proc host
 void makeModulusVector (action_t action) {
-  makeModulusVectorComponent<<<nBlocks, blockSize>>>(d_moduli, action);
+  makeModulusVectorComponent<<<nBlocks, blockSize>>>(action, d_moduli);
   cudaDeviceSynchronize();
+  
+  cudaMemcpy(
+    h_moduli,
+    d_moduli, 
+    N_stars * sizeof(*h_moduli),
+    cudaMemcpyDeviceToHost
+  );
+  CudaCheckError();
+}
+
+// ========================================================================= //
+// recenter galaxy in centre of mass and make average velocity = (0,0,0)
+
+// ------------------------------------------------------------------------- //
+// proc device
+
+__global__ void copyWeightedComponent(
+  action_t     action,
+  vector3D_t * dst
+) {
+  unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+  
+  if (i < N_STARS) {
+    switch(action) {
+      case position_action :
+        dst[i].x = GALAXY[i].position.x * GALAXY[i].mass / N_STARS;
+        dst[i].y = GALAXY[i].position.y * GALAXY[i].mass / N_STARS;
+        dst[i].z = GALAXY[i].position.z * GALAXY[i].mass / N_STARS;
+        
+      case velocity_action :
+        dst[i].x = GALAXY[i].velocity.x * GALAXY[i].mass / N_STARS;
+        dst[i].y = GALAXY[i].velocity.y * GALAXY[i].mass / N_STARS;
+        dst[i].z = GALAXY[i].velocity.z * GALAXY[i].mass / N_STARS;
+    }
+  }
+}
+// ......................................................................... //
+__global__ void reduction_galaxyCentre(
+  action_t     action,
+  vector3D_t * dst
+  
+) {
+  
+}
+// ......................................................................... //
+__global__ void translateComponent(
+  action_t   action,
+  vector3D_t offset
+) {
+  unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+  
+  if (i < N_STARS) {
+    switch(action) {
+      case position_action :
+        GALAXY[i].position.x += offset.x;
+        GALAXY[i].position.y += offset.y;
+        GALAXY[i].position.z += offset.z;
+        
+      case velocity_action :
+        GALAXY[i].velocity.x += offset.x;
+        GALAXY[i].velocity.y += offset.y;
+        GALAXY[i].velocity.z += offset.z;
+    }
+  }
+}
+
+// ------------------------------------------------------------------------- //
+// proc host
+void makeCentered() {
+  /* This drives a reduction as for re-centering, the centre is needed, obviously.
+   * Reduction is run on a copy of the galaxy's position and velocity coordinates.
+   * 
+   * In the following comments, COM stands for centre of mass, while COP 
+   * represents centre of momentum.
+   */
+  
+  vector3D_t  centreOfMass, 
+              centreOfMomentum,
+              * d_positions  = nullptr,     // temp device arrays 
+              * d_velocities = nullptr;     // do reductions on these
+  
+  
+  // get memory for reduction to COM & COP
+  cudaMalloc(&d_positions , N_stars * sizeof(*d_positions));
+  if (!d_positions ) {ABORT_WITH_MSG("position reduction device memory not initialized.");}
+  CudaCheckError();
+  
+  cudaMalloc(&d_velocities, N_stars * sizeof(*d_velocities));
+  if (!d_velocities) {ABORT_WITH_MSG("velocity reduction device memory not initialized.");}
+  CudaCheckError();
+  
+  
+  // copy to buffer COM & COP with weight mass[i]/N_stars
+  copyWeightedComponent<<<nBlocks, blockSize>>>(position_action, d_positions );
+  copyWeightedComponent<<<nBlocks, blockSize>>>(velocity_action, d_velocities);
+  
+  
+  // get COM & COP
+  // sync
+  
+  
+  // free buffer COM & COP
+  if (d_positions ) {cudaFree(d_positions ); CudaCheckError();}
+  if (d_velocities) {cudaFree(d_velocities); CudaCheckError();}
+  
+  
+  // translate by COM & COP
+  translateComponent<<<nBlocks, blockSize>>>(position_action, centreOfMass    );
+  translateComponent<<<nBlocks, blockSize>>>(velocity_action, centreOfMomentum);
 }

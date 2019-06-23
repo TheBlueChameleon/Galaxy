@@ -52,6 +52,9 @@ extern const unsigned int D_universe;      // initial coordinates will be within
 extern const unsigned int M_star_max;      // maximum star mass, arbitrary units.
 extern const unsigned int V_init_max;      // maximum initial star velocity in any canonical direction
 
+extern const unsigned int blockSize;
+extern const unsigned int nBlocks;
+
 // ========================================================================= //
 // device constants
 
@@ -68,14 +71,12 @@ __constant__ extern unsigned int      V_INIT_MAX;
 
 extern bool flag_rand_initialized;
 
-extern unsigned int blockSize;
-extern unsigned int nBlocks;
-
 extern star_t     * d_galaxy;
 extern star_t     * h_galaxy;
 
 extern distance_t * d_distances;
 extern float      * d_moduli;
+extern float      * h_moduli;
 
 extern curandGenerator_t d_RNG_mem;
 

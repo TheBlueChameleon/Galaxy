@@ -19,6 +19,8 @@ void makeGalaxyOnDevice();                    // prepares global d_galaxy
 void fetchGalaxyFromDevice();                 // transfers to    h_galaxy
 
 void makeDistanceVector(unsigned int i);      // prepares global d_distances
-void makeModulusVector (action_t action);     // prepares global d_moduli
+void makeModulusVector (action_t action);     // prepares global d_moduli and h_moduli
+
+void makeCentered();                          // finds the centre of mass and mean velocity. Then translates the whole galaxy by these vectors.
 
 #endif//STARDISTRIBUTION_H
