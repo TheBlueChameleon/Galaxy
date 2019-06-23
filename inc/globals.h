@@ -38,6 +38,7 @@ typedef struct {
   float l;
 } distance_t;
 // ------------------------------------------------------------------------- //
+typedef enum {position_action, velocity_action} action_t;
 
 // ========================================================================= //
 // global const vars

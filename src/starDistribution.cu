@@ -142,8 +142,8 @@ void makeDistanceVector(unsigned int k) {
 // get all distances from origin for all stars
 
 __global__ void makeModuliVectorComponent(
-  float * dst,
-  
+  float *  dst,
+  action_t action
 ) {
   /* computes the vector distance and euclidean norm of this vector distance
    * to a given star k.
@@ -152,7 +152,13 @@ __global__ void makeModuliVectorComponent(
   int i = blockDim.x * blockIdx.x + threadIdx.x;
   
   if (i < N_STARS) {
-    MODULI[i].l = LENGTH3D(MODULI[i].x, MODULI[i].y, MODULI[i].z);
+    switch(action) {
+      case position_action :
+        dst[i] = LENGTH3D(GALAXY[i].position.x, GALAXY[i].position.y, GALAXY[i].position.z);
+        
+      case velocity_action :
+        dst[i] = LENGTH3D(GALAXY[i].velocity.x, GALAXY[i].velocity.y, GALAXY[i].velocity.z);
+    }
   }
 }
 
